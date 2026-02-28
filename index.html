@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sketch-Blox 2D: Builder & Playtest</title>
+    <style>
+        :root {
+            --cursor-img: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><path d="M2,2 L18,12 L12,14 L18,24 L14,26 L8,16 L4,20 Z" fill="white" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+        }
+
+        body {
+            margin: 0;
+            background-color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            cursor: var(--cursor-img) 2 2, auto;
+            user-select: none;
+        }
+
+        #game-wrapper {
+            position: relative;
+            border: 5px solid #000;
+            background: white;
+            box-shadow: 15px 15px 0px #000;
+        }
+
+        canvas {
+            display: block;
+            background-color: #fff;
+            max-width: 100vw;
+            max-height: 80vh;
+        }
+
+        .ui-panel {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            display: none; 
+            flex-direction: column;
+            gap: 8px;
+            z-index: 5;
+        }
+
+        button {
+            background: #fff;
+            border: 3px solid #000;
+            padding: 10px 15px;
+            font-weight: bold;
+            font-family: inherit;
+            cursor: var(--cursor-img) 2 2, pointer;
+        }
+
+        button:hover { background: #000; color: #fff; }
+
+        .menu {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border: 5px solid #000;
+            padding: 20px;
+            text-align: center;
+            z-index: 10;
+            min-width: 300px;
+        }
+
+        .map-grid, .avatar-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 8px; 
+            margin-top: 10px;
+        }
+
+        .map-grid { max-height: 200px; overflow-y: auto; border: 2px solid #000; padding: 5px; }
+
+        #mobile-controls {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            width: 100%;
+            display: none;
+            justify-content: space-between;
+            padding: 0 40px;
+            box-sizing: border-box;
+            pointer-events: none;
+        }
+
+        .m-btn {
+            width: 65px; height: 65px;
+            background: white;
+            border: 4px solid #000;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; pointer-events: auto;
+        }
+
+        #build-tools {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            z-index: 6;
+        }
+
+        .active-tool { background: #000 !important; color: #fff !important; }
+        
+        #test-btn {
+            background: #fff;
+            border-color: #000;
+            margin-top: 10px;
+            color: #000;
+        }
+        
+        .testing #test-btn {
+            background: #ff0000;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Builder Tools -->
+    <div id="build-tools">
+        <button id="tool-plat" class="active-tool" onclick="setTool('plat')">PLATFORM</button>
+        <button id="tool-spike" onclick="setTool('spike')">SPIKE</button>
+        <button id="test-btn" onclick="togglePlaytest()">PLAYTEST</button>
+    </div>
+
+    <!-- Start Screen -->
+    <div id="startMenu" class="menu">
+        <h1 style="margin:0">SKETCH-BLOX</h1>
+        <button onclick="startGame()" style="font-size: 1.5em; width: 100%;">START</button>
+    </div>
+
+    <!-- Main HUD -->
+    <div id="gameUI" class="ui-panel">
+        <button onclick="toggleMenu('mapMenu')">MAPS</button>
+        <button onclick="toggleMenu('avatarMenu')">AVATAR</button>
+        <button onclick="toggleBuildMode()" id="buildBtn">CREATE MAPS</button>
+        <button onclick="toggleMenu('settingsMenu')">SETTINGS</button>
+    </div>
+
+    <!-- Map Menu -->
+    <div id="mapMenu" class="menu" style="display:none;">
+        <h2 style="margin:0">Worlds</h2>
+        <div class="map-grid">
+            <button onclick="loadMap('Plains')">Fields</button>
+            <button onclick="loadMap('SpikePit')">Spike Pit</button>
+            <button onclick="loadMap('Islands')">Sky Islands</button>
+            <button onclick="loadMap('Stairs')">Staircase</button>
+            <button onclick="loadMap('Peak')">Viking Peak</button>
+            <button onclick="loadMap('Caves')">Underground</button>
+            <button onclick="loadMap('Empty')">Clean Page</button>
+        </div>
+        <br><button onclick="toggleMenu('mapMenu')">CLOSE</button>
+    </div>
+
+    <!-- Avatar Menu -->
+    <div id="avatarMenu" class="menu" style="display:none;">
+        <h2 style="margin:0">Hats</h2>
+        <div class="avatar-grid">
+            <button onclick="setHat('none')">None</button>
+            <button onclick="setHat('tophat')">Top Hat</button>
+            <button onclick="setHat('crown')">Crown</button>
+            <button onclick="setHat('helmet')">Helmet</button>
+            <button onclick="setHat('viking')">Viking</button>
+            <button onclick="setHat('cap')">Cap</button>
+        </div>
+        <br><button onclick="toggleMenu('avatarMenu')">CLOSE</button>
+    </div>
+
+    <!-- Settings Menu -->
+    <div id="settingsMenu" class="menu" style="display:none;">
+        <h2 style="margin:0">Settings</h2>
+        <button onclick="toggleMobile()" id="mobToggle">Mobile Buttons: OFF</button>
+        <br><br><button onclick="toggleMenu('settingsMenu')">CLOSE</button>
+    </div>
+
+    <!-- Mobile UI -->
+    <div id="mobile-controls">
+        <div style="display:flex; gap: 15px;">
+            <div class="m-btn" id="btnL">←</div>
+            <div class="m-btn" id="btnR">→</div>
+        </div>
+        <div class="m-btn" id="btnJ">JUMP</div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 800; canvas.height = 450;
+
+    const GRAVITY = 0.6;
+    const JUMP_FORCE = -12;
+    const SPEED = 5;
+
+    let gameActive = false;
+    let buildMode = false;
+    let isTesting = false;
+    let buildTool = 'plat';
+    let currentMapName = "Plains";
+    let activeMenu = null;
+    let mobileOn = false;
+
+    const player = {
+        x: 100, y: 300, width: 20, height: 60,
+        velX: 0, velY: 0, grounded: false,
+        hat: 'none', direction: 1,
+        isDead: false, rotation: 0
+    };
+
+    const keys = {};
+    const mobKeys = { l: false, r: false, j: false };
+    let platforms = [];
+    let spikes = [];
+
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    function bindMob(id, key) {
+        const b = document.getElementById(id);
+        const down = (e) => { e.preventDefault(); mobKeys[key] = true; };
+        const up = (e) => { e.preventDefault(); mobKeys[key] = false; };
+        b.addEventListener('touchstart', down); b.addEventListener('touchend', up);
+        b.addEventListener('mousedown', down); b.addEventListener('mouseup', up);
+    }
+    bindMob('btnL', 'l'); bindMob('btnR', 'r'); bindMob('btnJ', 'j');
+
+    canvas.addEventListener('mousedown', (e) => {
+        // Only place objects if in Build Mode AND NOT currently playtesting
+        if (!buildMode || isTesting) return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const my = (e.clientY - rect.top) * (canvas.height / rect.height);
+        if (buildTool === 'plat') platforms.push({ x: mx - 40, y: my, w: 80, h: 15 });
+        else spikes.push({ x: mx - 15, y: my - 20, w: 30, h: 30 });
+    });
+
+    function startGame() {
+        document.getElementById('startMenu').style.display = 'none';
+        document.getElementById('gameUI').style.display = 'flex';
+        gameActive = true;
+        loadMap('Plains');
+    }
+
+    function toggleMenu(id) {
+        if (activeMenu === id) { document.getElementById(id).style.display = 'none'; activeMenu = null; }
+        else {
+            if (activeMenu) document.getElementById(activeMenu).style.display = 'none';
+            document.getElementById(id).style.display = 'block'; activeMenu = id;
+        }
+    }
+
+    function toggleBuildMode() {
+        buildMode = !buildMode;
+        isTesting = false; // Reset testing state when entering/exiting builder
+        document.getElementById('buildBtn').innerText = buildMode ? "EXIT BUILDER" : "CREATE MAPS";
+        document.getElementById('build-tools').style.display = buildMode ? "flex" : "none";
+        document.getElementById('build-tools').classList.remove('testing');
+        document.getElementById('test-btn').innerText = "PLAYTEST";
+        
+        // Freeze player position when entering builder
+        if (buildMode) {
+            player.velX = 0; player.velY = 0;
+        }
+    }
+
+    function togglePlaytest() {
+        isTesting = !isTesting;
+        const btn = document.getElementById('test-btn');
+        const toolPanel = document.getElementById('build-tools');
+        
+        if (isTesting) {
+            btn.innerText = "STOP TEST";
+            toolPanel.classList.add('testing');
+        } else {
+            btn.innerText = "PLAYTEST";
+            toolPanel.classList.remove('testing');
+            // Reset player to start position when stopping test
+            player.x = 50; player.y = 300; player.velX = 0; player.velY = 0;
+            player.isDead = false; player.rotation = 0;
+        }
+    }
+
+    function setTool(t) {
+        if (isTesting) return; // Can't swap tools while testing
+        buildTool = t;
+        document.getElementById('tool-plat').className = t === 'plat' ? 'active-tool' : '';
+        document.getElementById('tool-spike').className = t === 'spike' ? 'active-tool' : '';
+    }
+
+    function toggleMobile() {
+        mobileOn = !mobileOn;
+        document.getElementById('mobile-controls').style.display = mobileOn ? 'flex' : 'none';
+        document.getElementById('mobToggle').innerText = "Mobile Buttons: " + (mobileOn ? "ON" : "OFF");
+    }
+
+    function setHat(h) { player.hat = h; }
+
+    function loadMap(name) {
+        currentMapName = name; platforms = []; spikes = [];
+        player.x = 50; player.y = 300; player.velX = 0; player.velY = 0;
+        player.isDead = false; player.rotation = 0;
+        
+        if (name === "Plains") {
+            platforms.push({ x: 0, y: 410, w: 800, h: 40 });
+            platforms.push({ x: 350, y: 320, w: 100, h: 15 });
+            spikes.push({ x: 385, y: 290, w: 30, h: 30 });
+        } else if (name === "SpikePit") {
+            platforms.push({ x: 0, y: 410, w: 200, h: 40 }, { x: 600, y: 410, w: 200, h: 40 });
+            for(let i=220; i<580; i+=60) spikes.push({ x: i, y: 420, w: 30, h: 30 });
+        } else if (name === "Islands") {
+            platforms.push({ x: 20, y: 400, w: 100, h: 20 }, { x: 200, y: 320, w: 80, h: 15 }, { x: 380, y: 240, w: 80, h: 15 }, { x: 700, y: 150, w: 100, h: 20 });
+        } else if (name === "Stairs") {
+            platforms.push({ x: 0, y: 410, w: 800, h: 40 });
+            for(let i=1; i<5; i++) platforms.push({ x: i*150, y: 410-(i*70), w: 100, h: 15 });
+        } else if (name === "Peak") {
+            platforms.push({ x: 0, y: 410, w: 800, h: 40 });
+            platforms.push({ x: 200, y: 300, w: 400, h: 20 });
+            spikes.push({ x: 380, y: 270, w: 30, h: 30 });
+        } else if (name === "Caves") {
+            platforms.push({ x: 0, y: 410, w: 800, h: 40 }, { x: 0, y: 0, w: 800, h: 40 });
+            platforms.push({ x: 300, y: 200, w: 200, h: 15 });
+            spikes.push({ x: 350, y: 380, w: 30, h: 30 });
+        } else if (name === "Empty") {
+             platforms.push({ x: 0, y: 410, w: 800, h: 40 });
+        }
+        if (activeMenu) toggleMenu(activeMenu);
+    }
+
+    function drawStickman(p) {
+        ctx.save();
+        ctx.translate(p.x + p.width/2, p.y + p.height/2);
+        ctx.rotate(p.rotation);
+        const headR = 10, headY = -20;
+        ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.arc(0, headY, headR, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, headY + headR); ctx.lineTo(0, 10); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, headY+15); ctx.lineTo(-15, headY+30); ctx.moveTo(0, headY+15); ctx.lineTo(15, headY+30); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(-10, 30); ctx.moveTo(0, 10); ctx.lineTo(10, 30); ctx.stroke();
+
+        const hatY = headY - headR; ctx.fillStyle = "#fff"; ctx.lineWidth = 2;
+        if (p.hat === 'tophat') {
+            ctx.fillRect(-15, hatY, 30, 4); ctx.strokeRect(-15, hatY, 30, 4);
+            ctx.fillRect(-8, hatY - 15, 16, 15); ctx.strokeRect(-8, hatY - 15, 16, 15);
+        } else if (p.hat === 'crown') {
+            ctx.beginPath(); ctx.moveTo(-10, hatY); ctx.lineTo(-10, hatY-10); ctx.lineTo(-5, hatY-5); ctx.lineTo(0, hatY-10); ctx.lineTo(5, hatY-5); ctx.lineTo(10, hatY-10); ctx.lineTo(10, hatY); ctx.closePath(); ctx.fill(); ctx.stroke();
+        } else if (p.hat === 'helmet') {
+            ctx.beginPath(); ctx.arc(0, headY, headR+2, Math.PI, 0); ctx.stroke(); ctx.strokeRect(-10, headY, 20, 5);
+        } else if (p.hat === 'viking') {
+            ctx.beginPath(); ctx.arc(0, headY-2, headR, Math.PI, 0); ctx.stroke(); ctx.moveTo(-7, hatY); ctx.lineTo(-18, hatY-12); ctx.moveTo(7, hatY); ctx.lineTo(18, hatY-12); ctx.stroke();
+        } else if (p.hat === 'cap') {
+            ctx.beginPath(); ctx.arc(0, headY, headR, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+            if(p.direction === 1) ctx.strokeRect(0, headY-4, 15, 3); else ctx.strokeRect(-15, headY-4, 15, 3);
+        }
+        ctx.restore();
+    }
+
+    function update() {
+        if (gameActive) {
+            // Logic only runs if playing normally OR in Build Mode Playtest
+            const physicsEnabled = !buildMode || isTesting;
+
+            if (physicsEnabled) {
+                if (!player.isDead) {
+                    if (keys['ArrowRight'] || keys['KeyD'] || mobKeys.r) { player.velX = SPEED; player.direction = 1; }
+                    else if (keys['ArrowLeft'] || keys['KeyA'] || mobKeys.l) { player.velX = -SPEED; player.direction = -1; }
+                    else { player.velX *= 0.8; }
+
+                    if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW'] || mobKeys.j) && player.grounded) {
+                        player.velY = JUMP_FORCE; player.grounded = false;
+                    }
+                }
+
+                player.velY += GRAVITY;
+                player.x += player.velX;
+                player.y += player.velY;
+
+                if (player.isDead) {
+                    player.rotation += 0.15;
+                    if (player.y > canvas.height + 200) {
+                        if (isTesting) { togglePlaytest(); togglePlaytest(); } // Restart test
+                        else loadMap(currentMapName);
+                    }
+                } else {
+                    player.grounded = false;
+                    for (let p of platforms) {
+                        if (player.x + 5 < p.x + p.w && player.x + player.width - 5 > p.x &&
+                            player.y + player.height > p.y && player.y + player.height < p.y + p.h && player.velY >= 0) {
+                            player.y = p.y - player.height; player.velY = 0; player.grounded = true;
+                        }
+                    }
+                    for (let s of spikes) {
+                        if (player.x < s.x + s.w && player.x + player.width > s.x &&
+                            player.y < s.y + s.h && player.y + player.height > s.y) {
+                            player.isDead = true; player.velY = -10; player.velX = (Math.random()-0.5)*5;
+                        }
+                    }
+                    if (player.y > canvas.height + 150) {
+                        if (isTesting) { togglePlaytest(); togglePlaytest(); } 
+                        else loadMap(currentMapName);
+                    }
+                }
+            }
+        }
+        draw();
+        requestAnimationFrame(update);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (!gameActive) return;
+
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+        platforms.forEach(p => {
+            ctx.strokeRect(p.x, p.y, p.w, p.h);
+            for (let i = 5; i < p.w; i += 15) {
+                ctx.beginPath(); ctx.moveTo(p.x + i, p.y); ctx.lineTo(p.x + i + 10, p.y + p.h); ctx.stroke();
+            }
+        });
+
+        spikes.forEach(s => {
+            ctx.beginPath(); ctx.moveTo(s.x, s.y + s.h); ctx.lineTo(s.x + s.w/2, s.y); ctx.lineTo(s.x + s.w, s.y + s.h); ctx.closePath(); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(s.x + s.w/2, s.y + 5); ctx.lineTo(s.x + s.w/2, s.y + s.h); ctx.stroke();
+        });
+
+        drawStickman(player);
+
+        if (buildMode && !isTesting) {
+            ctx.fillStyle = "rgba(0,0,0,0.1)";
+            ctx.font = "bold 20px Courier New";
+            ctx.fillText("BUILD MODE: PLACING OBJECTS", 250, 40);
+        }
+    }
+    update();
+</script>
+</body>
+</html>
